@@ -23,7 +23,7 @@ import org.jruby.embed.ScriptingContainer;
  * @author Yoko Harada <yokolet@gmail.com>
  */
 @WebServlet(name="CrossingBase", urlPatterns={"/CrossingBase"})
-public abstract class CrossingBase extends HttpServlet {
+public abstract class CrossingServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     protected ScriptingContainer container;
     protected List<CrossingRoute> routes;
@@ -31,7 +31,7 @@ public abstract class CrossingBase extends HttpServlet {
     /**
      * @see HttpServlet#HttpServlet()
      */
-    public CrossingBase() {
+    public CrossingServlet() {
         super();
     }
 
