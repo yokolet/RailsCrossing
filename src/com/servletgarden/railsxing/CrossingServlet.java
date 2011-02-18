@@ -59,15 +59,15 @@ public abstract class CrossingServlet extends HttpServlet {
         return CrossingHelpers.getEnvMap(request);
     }
     
-    protected CrossingRoute findMatchedRoute(String context_path, String path_info, String method) {
-        return CrossingHelpers.findMatchedRoute(container, routes, context_path, path_info, method);
+    protected CrossingRoute findMatchedRoute(String request_uri, String method) {
+        return CrossingHelpers.findMatchedRoute(container, routes, request_uri, method);
     }
     
     protected void dispatch(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        CrossingRoute route = findMatchedRoute(request.getContextPath(), request.getPathInfo(), request.getMethod());
+        CrossingRoute route = findMatchedRoute(request.getRequestURI(), request.getMethod());
         if (route == null) return;
         Map<String, String> env = getEnvMap(request);
-        CrossingResponse crossingResponse =  CrossingHelpers.dispatch(container, route, env);
+        CrossingResponse crossingResponse =  CrossingHelpers.dispatch(container, request.getContextPath(), route, env);
         response.setStatus(crossingResponse.getStatus());
         Set<String> keys = crossingResponse.getResponseHeader().keySet();
         for (String key : keys) {
@@ -79,8 +79,8 @@ public abstract class CrossingServlet extends HttpServlet {
     }
     
     protected CrossingResponse dispatch(HttpServletRequest request) {
-        CrossingRoute route = findMatchedRoute(request.getContextPath(), request.getPathInfo(), request.getMethod());
+        CrossingRoute route = findMatchedRoute(request.getRequestURI(), request.getMethod());
         Map<String, String> env = getEnvMap(request);
-        return CrossingHelpers.dispatch(container, route, env);
+        return CrossingHelpers.dispatch(container, request.getContextPath(), route, env);
     }
 }

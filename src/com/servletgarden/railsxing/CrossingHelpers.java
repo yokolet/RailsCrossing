@@ -95,9 +95,9 @@ public class CrossingHelpers {
         return env;
     }
     
-    public static CrossingRoute findMatchedRoute(ScriptingContainer container, List<CrossingRoute> routes, String context_path, String path_info, String method) {
-        if (path_info == null || method == null) return null;
-        IRubyObject ruby_path = RubyString.newString(container.getProvider().getRuntime(), context_path + path_info);
+    public static CrossingRoute findMatchedRoute(ScriptingContainer container, List<CrossingRoute> routes, String request_uri, String method) {
+        if (request_uri == null || method == null) return null;
+        IRubyObject ruby_path = RubyString.newString(container.getProvider().getRuntime(), request_uri);
         IRubyObject ruby_method = RubyString.newString(container.getProvider().getRuntime(), method.toUpperCase());
         for (CrossingRoute route : routes) {
             if (container.callMethod(route.path_info_pattern, "match", ruby_path) != null) {
@@ -109,17 +109,17 @@ public class CrossingHelpers {
         return null;
     }
     
-    public static CrossingResponse dispatch(ScriptingContainer container, CrossingRoute route, Map<String, String> env) {
+    public static CrossingResponse dispatch(ScriptingContainer container, String context_path, CrossingRoute route, Map<String, String> env) {
         String script = 
                 "response = " + route.getName() + ".action('" + route.getAction() + "').call(env)\n" +
                 "return response[0], response[1], response[2].body";
         container.put("env", env);
         RubyArray responseArray = (RubyArray)container.runScriptlet(script);
         CrossingResponse response = new CrossingResponse();
+        response.context_path = context_path;
         response.status = ((Long)responseArray.get(0)).intValue(); //status code; Fixnum
         response.responseHeader = (Map)responseArray.get(1); // response header; Hash
         response.body = (String)responseArray.get(2); // response body
         return response;
     }
-
 }

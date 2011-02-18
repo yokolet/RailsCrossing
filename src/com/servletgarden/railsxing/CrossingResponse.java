@@ -12,6 +12,7 @@ import java.util.Map;
  * @author Yoko Harada <yokolet@gmail.com>
  */
 public class CrossingResponse {
+    String context_path;
     int status;
     Map<String, String> responseHeader;
     String body;
@@ -19,7 +20,7 @@ public class CrossingResponse {
     CrossingResponse() {}
 
     public String getBody() {
-        return body;
+        return addContextPath();
     }
 
     public Map<String, String> getResponseHeader() {
@@ -28,5 +29,13 @@ public class CrossingResponse {
 
     public int getStatus() {
         return status;
+    }
+    
+    private String addContextPath() {
+        // TODO: should use regex
+        String tmp = body;
+        tmp = tmp.replace("/stylesheets/", context_path + "/stylesheets/");
+        tmp = tmp.replace("/javascripts/", context_path + "/javascripts/");
+        return tmp;
     }
 }
