@@ -5,6 +5,7 @@
 
 package com.servletgarden.railsxing;
 
+import java.util.Map;
 import java.util.StringTokenizer;
 import org.jruby.runtime.builtin.IRubyObject;
 
@@ -19,6 +20,7 @@ public class CrossingRoute {
     String action; //String
     String name; // String
     String controller_class_name = null;
+    IRubyObject params;
     
     CrossingRoute() {}
 
@@ -75,5 +77,9 @@ public class CrossingRoute {
         }
         sb.append("Controller");
         return new String(sb);
+    }
+    
+    public IRubyObject getParams() {
+        return params;
     }
 }

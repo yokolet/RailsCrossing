@@ -46,7 +46,8 @@ public class CrossingHelpers {
         container.put("gemfile", base_path + "/" + rails_path + "/Gemfile");
         String script =
                 "$LOAD_PATH << load_path; ENV['GEM_HOME'] = gem_path; ENV['BUNDLE_GEMFILE'] = gemfile\n" +
-                "require 'config/environment'";
+                "require 'config/environment'\n" +
+                "ActionController::Routing::Routes.finalize!";
         container.runScriptlet(script);
     }
     
@@ -78,11 +79,13 @@ public class CrossingHelpers {
         return routeArray;
     }
     
-    public static Map<String, String> getEnvMap(HttpServletRequest request) {
-	Map<String, String> env = new HashMap<String, String>();
+    public static Map<String, Object> getEnvMap(HttpServletRequest request) {
+	Map<String, Object> env = new HashMap<String, Object>();
         env.put("rack.input", "");
+        env.put("AUTH_TYPE".intern(), request.getAuthType());
+        //env.put("PATH_TRANSLATED".intern(), request.getPathTranslated()); // no meaningfull path
         env.put("REQUEST_METHOD".intern(), request.getMethod());
-        env.put("PATH_INFO".intern(), request.getPathInfo());
+        env.put("PATH_INFO".intern(), request.getRequestURI());
         env.put("QUERY_STRING".intern(), request.getQueryString());
         env.put("SERVER_NAME".intern(), request.getServerName());
         env.put("SERVER_PORT".intern(), String.valueOf(request.getServerPort()));
@@ -92,27 +95,32 @@ public class CrossingHelpers {
         env.put("REMOTE_HOST", request.getRemoteHost());
         env.put("REMOTE_ADDR", request.getRemoteAddr());
         env.put("REMOTE_USER", request.getRemoteUser());
+        env.put("CONTENT_TYPE", request.getContentType());
+        env.put("CONTENT_LENGTH", request.getContentLength());
         return env;
     }
     
     public static CrossingRoute findMatchedRoute(ScriptingContainer container, List<CrossingRoute> routes, String request_uri, String method) {
         if (request_uri == null || method == null) return null;
+        IRubyObject params = (IRubyObject) container.runScriptlet("ActionController::Routing::Routes.recognize_path(\"" + request_uri + "\")");
         IRubyObject ruby_path = RubyString.newString(container.getProvider().getRuntime(), request_uri);
         IRubyObject ruby_method = RubyString.newString(container.getProvider().getRuntime(), method.toUpperCase());
         for (CrossingRoute route : routes) {
             if (container.callMethod(route.path_info_pattern, "match", ruby_path) != null) {
-                if (container.callMethod(route.request_method_pattern, "match", ruby_method) != null) {
+                //if (container.callMethod(route.request_method_pattern, "match", ruby_method) != null) {
+                    route.params = params;
                     return route;
-                }
+                //}
             }
         }
         return null;
     }
     
-    public static CrossingResponse dispatch(ScriptingContainer container, String context_path, CrossingRoute route, Map<String, String> env) {
+    public static CrossingResponse dispatch(ScriptingContainer container, String context_path, CrossingRoute route, Map<String, Object> env) {
         String script = 
                 "response = " + route.getName() + ".action('" + route.getAction() + "').call(env)\n" +
                 "return response[0], response[1], response[2].body";
+        env.put("action_dispatch.request.path_parameters", route.getParams());
         container.put("env", env);
         RubyArray responseArray = (RubyArray)container.runScriptlet(script);
         CrossingResponse response = new CrossingResponse();
