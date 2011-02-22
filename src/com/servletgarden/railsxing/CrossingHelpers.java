@@ -5,6 +5,7 @@
 
 package com.servletgarden.railsxing;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -12,7 +13,9 @@ import java.util.Map;
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
 import org.jruby.RubyArray;
+import org.jruby.RubyClass;
 import org.jruby.RubyString;
+import org.jruby.RubyStringIO;
 import org.jruby.embed.LocalContextScope;
 import org.jruby.embed.LocalVariableBehavior;
 import org.jruby.embed.ScriptingContainer;
@@ -79,9 +82,9 @@ public class CrossingHelpers {
         return routeArray;
     }
     
-    public static Map<String, Object> getEnvMap(HttpServletRequest request) {
+    public static Map<String, Object> getEnvMap(HttpServletRequest request) throws IOException {
 	Map<String, Object> env = new HashMap<String, Object>();
-        env.put("rack.input", "");
+        env.put("rack.input", request.getInputStream());
         env.put("AUTH_TYPE".intern(), request.getAuthType());
         //env.put("PATH_TRANSLATED".intern(), request.getPathTranslated()); // no meaningfull path
         env.put("REQUEST_METHOD".intern(), request.getMethod());
@@ -121,6 +124,11 @@ public class CrossingHelpers {
                 "response = " + route.getName() + ".action('" + route.getAction() + "').call(env)\n" +
                 "return response[0], response[1], response[2].body";
         env.put("action_dispatch.request.path_parameters", route.getParams());
+        
+        env.put("rack.input", "");
+        env.put("rack.request.form_input", "");
+        env.put("rack.request.form_hash", route.getParams());
+        
         container.put("env", env);
         RubyArray responseArray = (RubyArray)container.runScriptlet(script);
         CrossingResponse response = new CrossingResponse();

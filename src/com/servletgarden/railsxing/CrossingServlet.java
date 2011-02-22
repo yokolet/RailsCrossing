@@ -55,7 +55,7 @@ public abstract class CrossingServlet extends HttpServlet {
         if (container != null) container.terminate();
     }
     
-    protected Map<String, Object> getEnvMap(HttpServletRequest request) {
+    protected Map<String, Object> getEnvMap(HttpServletRequest request) throws IOException {
         return CrossingHelpers.getEnvMap(request);
     }
     
@@ -78,7 +78,7 @@ public abstract class CrossingServlet extends HttpServlet {
         writer.write(crossingResponse.getBody());
     }
     
-    protected CrossingResponse dispatch(HttpServletRequest request) {
+    protected CrossingResponse dispatch(HttpServletRequest request) throws IOException {
         CrossingRoute route = findMatchedRoute(request.getRequestURI(), request.getMethod());
         Map<String, Object> env = getEnvMap(request);
         return CrossingHelpers.dispatch(container, request.getContextPath(), route, env);
