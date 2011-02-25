@@ -6,6 +6,8 @@
 package com.servletgarden.railsxing;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -31,11 +33,25 @@ public class CrossingResponse {
         return status;
     }
     
+    private static Pattern pattern = 
+        Pattern.compile("(<\\s*link\\s+href\\s*=\\s*(\"|')\\/stylesheets/)|(<\\s*script\\s+src\\s*=\\s*(\"|')\\/javascripts/)");
+    
     private String addContextPath() {
-        // TODO: should use regex
-        String tmp = body;
-        tmp = tmp.replace("/stylesheets/", context_path + "/stylesheets/");
-        tmp = tmp.replace("/javascripts/", context_path + "/javascripts/");
-        return tmp;
+        Matcher matcher = pattern.matcher(body);
+        boolean result = matcher.find();
+        StringBuffer sb = new StringBuffer();
+        while(result) {
+            String matched = matcher.group();
+            String replacement = "";
+            if (matched.contains("/stylesheets/")) {
+                replacement = matched.replace("/stylesheets/", context_path + "/stylesheets/");
+            } else if (matched.contains("/javascripts/")) {
+                replacement = matched.replace("/javascripts/", context_path + "/javascripts/");
+            }
+            matcher.appendReplacement(sb, replacement);
+            result = matcher.find();
+        }
+        matcher.appendTail(sb);
+        return new String(sb);
     }
 }
