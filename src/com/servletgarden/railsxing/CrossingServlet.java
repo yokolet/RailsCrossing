@@ -64,9 +64,16 @@ public abstract class CrossingServlet extends HttpServlet {
     }
     
     protected void dispatch(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        CrossingRoute route = findMatchedRoute(request.getRequestURI(), request.getMethod());
+        String method = null;
+        if (request.getParameter("_method") != null) {
+            method = request.getParameter("_method").toUpperCase();
+        } else {
+            method = request.getMethod().toUpperCase();
+        }
+        CrossingRoute route = findMatchedRoute(request.getRequestURI(), method);
         if (route == null) return;
         Map<String, Object> env = getEnvMap(request);
+        CrossingHelpers.setParamsToEnv(container, request, env);
         CrossingResponse crossingResponse =  CrossingHelpers.dispatch(container, request.getContextPath(), route, env);
         response.setStatus(crossingResponse.getStatus());
         Set<String> keys = crossingResponse.getResponseHeader().keySet();

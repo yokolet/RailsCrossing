@@ -6,16 +6,19 @@
 package com.servletgarden.railsxing;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
+import org.jruby.Ruby;
 import org.jruby.RubyArray;
-import org.jruby.RubyClass;
+import org.jruby.RubyHash;
 import org.jruby.RubyString;
-import org.jruby.RubyStringIO;
 import org.jruby.embed.LocalContextScope;
 import org.jruby.embed.LocalVariableBehavior;
 import org.jruby.embed.ScriptingContainer;
@@ -83,11 +86,14 @@ public class CrossingHelpers {
     }
     
     public static Map<String, Object> getEnvMap(HttpServletRequest request) throws IOException {
-	Map<String, Object> env = new HashMap<String, Object>();
-        env.put("rack.input", request.getInputStream());
+	Map<String, Object> env = new LinkedHashMap<String, Object>();
+        env.put("HTTP_VERSION".intern(), request.getProtocol());
+        env.put("rack.url_scheme", request.getScheme());
         env.put("AUTH_TYPE".intern(), request.getAuthType());
         //env.put("PATH_TRANSLATED".intern(), request.getPathTranslated()); // no meaningfull path
         env.put("REQUEST_METHOD".intern(), request.getMethod());
+        String tmp = request.getParameter("_method");
+        if (tmp != null) env.put("rack.methodoverride.original_method", tmp.toUpperCase());
         env.put("PATH_INFO".intern(), request.getRequestURI());
         env.put("QUERY_STRING".intern(), request.getQueryString());
         env.put("SERVER_NAME".intern(), request.getServerName());
@@ -103,6 +109,63 @@ public class CrossingHelpers {
         return env;
     }
     
+    public static void setParamsToEnv(ScriptingContainer container, HttpServletRequest request, Map<String, Object> env) throws IOException {
+        Map form_inputs = RubyHash.newHash(container.getProvider().getRuntime());
+        form_inputs.put("name", "abc");
+        form_inputs.put("email", "abc@winter.storm");
+        
+        String tmp = request.getContentType();
+        if (tmp == null) {
+            env.put("rack.input", "");
+        } else if ("application/x-www-form-urlencoded".equals(tmp.toLowerCase())) {
+            env.put("rack.input", "");
+            env.put("rack.request.form_input", "");
+            Map form_hash = RubyHash.newHash(container.getProvider().getRuntime());
+            Enumeration<String> names = request.getParameterNames();
+            while (names.hasMoreElements()) {
+                String key = names.nextElement();
+                if ("utf8".equals(key)) {
+                    form_hash.put("utf8", convertToUTF8(request.getParameter("utf8")));
+                } else if ("authenticity_token".equals(key)) {
+                    form_hash.put("authenticity_token", request.getParameter("authenticity_token"));
+                } else if ("commit".equals(key)) {
+                    form_hash.put("commit", request.getParameter("commit"));
+                } else {
+                    parseParameter(container.getProvider().getRuntime(), form_hash, key, convertToUTF8(request.getParameter(key)));
+                }
+            }
+            
+            env.put("rack.request.form_hash", form_hash);
+        } else if ("multipart/form-data".equals(tmp.toLowerCase())) {
+            env.put("rack.input", request.getInputStream());
+        } else {
+            env.put("rack.input", "");
+        }
+    }
+    
+    private static String convertToUTF8(String str) throws UnsupportedEncodingException {
+        return new String(str.getBytes("ISO-8859-1"), "UTF-8");
+    }
+    
+    private static Pattern pattern = Pattern.compile("[\\[\\]]");
+    
+    private static void parseParameter(Ruby runtime, Map<String, RubyHash> form_hash, String key, String value) {
+        // form_hash should not be null
+        // key is something like user[name] or user[email]
+        // params is a pair of a model name and key-value pair. ex) user => {:name => 'name', :email => 'email'}
+        String[] results = pattern.split(key);
+        // results[0] and results[1] should be something like user and name respectively
+        if (results == null || results.length != 2) return;
+        RubyHash m; // m is a key-value pair. ex) {:name => 'name', :email => 'email'}
+        if (form_hash.containsKey(results[0])) {
+            m = (RubyHash) form_hash.get(results[0]);
+        } else {
+            m = RubyHash.newHash(runtime);
+        }
+        m.put(results[1], value);
+        form_hash.put(results[0], m);
+    }
+    
     public static CrossingRoute findMatchedRoute(ScriptingContainer container, List<CrossingRoute> routes, String request_uri, String method) {
         if (request_uri == null || method == null) return null;
         IRubyObject params = (IRubyObject) container.runScriptlet("ActionController::Routing::Routes.recognize_path(\"" + request_uri + "\")");
@@ -110,25 +173,20 @@ public class CrossingHelpers {
         IRubyObject ruby_method = RubyString.newString(container.getProvider().getRuntime(), method.toUpperCase());
         for (CrossingRoute route : routes) {
             if (container.callMethod(route.path_info_pattern, "match", ruby_path) != null) {
-                //if (container.callMethod(route.request_method_pattern, "match", ruby_method) != null) {
+                if (container.callMethod(route.request_method_pattern, "match", ruby_method) != null) {
                     route.params = params;
                     return route;
-                //}
+                }
             }
         }
         return null;
     }
     
     public static CrossingResponse dispatch(ScriptingContainer container, String context_path, CrossingRoute route, Map<String, Object> env) {
+        env.put("action_dispatch.request.path_parameters", route.getParams());
         String script = 
                 "response = " + route.getName() + ".action('" + route.getAction() + "').call(env)\n" +
-                "return response[0], response[1], response[2].body";
-        env.put("action_dispatch.request.path_parameters", route.getParams());
-        
-        env.put("rack.input", "");
-        env.put("rack.request.form_input", "");
-        env.put("rack.request.form_hash", route.getParams());
-        
+                "return response[0], response[1], response[2].body";       
         container.put("env", env);
         RubyArray responseArray = (RubyArray)container.runScriptlet(script);
         CrossingResponse response = new CrossingResponse();

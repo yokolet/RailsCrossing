@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Static files serving Servlet. This should have a cache for performance. Not yet.
+ * 
  * @author Yoko Harada <yokolet@gmail.com>
  */
 public class CrossingDefaultServlet extends HttpServlet {
@@ -47,10 +48,8 @@ public class CrossingDefaultServlet extends HttpServlet {
         char cbuf[] = new char[4096];
         try {
             int size = 0;
-            int pos = 0;
-            while ((size = reader.read(cbuf, 0, cbuf.length)) > 0) {
-                out.write(cbuf, pos, size);
-                pos =+ size;
+            while ((size = reader.read(cbuf, 0, cbuf.length)) != -1) {
+                out.write(cbuf, 0, size);
             }
         } finally {
             reader.close();
@@ -61,7 +60,6 @@ public class CrossingDefaultServlet extends HttpServlet {
     
     private String getContentTypeFromFilename(String file_name) {
         String extension = file_name.substring(file_name.lastIndexOf(".") + 1).toLowerCase();
-        System.out.println("extension: " + extension);
         if ("html".equals(extension) || "htm".equals(extension)) return "text/html";
         else if ("css".equals(extension)) return "text/css";
         else if ("js".equals(extension)) return "text/javascript";

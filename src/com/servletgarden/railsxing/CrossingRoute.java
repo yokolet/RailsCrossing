@@ -5,7 +5,6 @@
 
 package com.servletgarden.railsxing;
 
-import java.util.Map;
 import java.util.StringTokenizer;
 import org.jruby.runtime.builtin.IRubyObject;
 
