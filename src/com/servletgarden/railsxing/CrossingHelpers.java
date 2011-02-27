@@ -110,10 +110,6 @@ public class CrossingHelpers {
     }
     
     public static void setParamsToEnv(ScriptingContainer container, HttpServletRequest request, Map<String, Object> env) throws IOException {
-        Map form_inputs = RubyHash.newHash(container.getProvider().getRuntime());
-        form_inputs.put("name", "abc");
-        form_inputs.put("email", "abc@winter.storm");
-        
         String tmp = request.getContentType();
         if (tmp == null) {
             env.put("rack.input", "");
@@ -141,6 +137,8 @@ public class CrossingHelpers {
         } else {
             env.put("rack.input", "");
         }
+        Map map = (Map) request.getSession().getAttribute("action_dispatch.request.flash_hash");
+        if (map != null) env.put("action_dispatch.request.flash_hash", map);
     }
     
     private static String convertToUTF8(String str) throws UnsupportedEncodingException {
@@ -168,7 +166,7 @@ public class CrossingHelpers {
     
     public static CrossingRoute findMatchedRoute(ScriptingContainer container, List<CrossingRoute> routes, String request_uri, String method) {
         if (request_uri == null || method == null) return null;
-        IRubyObject params = (IRubyObject) container.runScriptlet("ActionController::Routing::Routes.recognize_path(\"" + request_uri + "\")");
+        IRubyObject params = (IRubyObject) container.runScriptlet("Rails.application.routes.recognize_path(\"" + request_uri + "\")");
         IRubyObject ruby_path = RubyString.newString(container.getProvider().getRuntime(), request_uri);
         IRubyObject ruby_method = RubyString.newString(container.getProvider().getRuntime(), method.toUpperCase());
         for (CrossingRoute route : routes) {
@@ -186,7 +184,7 @@ public class CrossingHelpers {
         env.put("action_dispatch.request.path_parameters", route.getParams());
         String script = 
                 "response = " + route.getName() + ".action('" + route.getAction() + "').call(env)\n" +
-                "return response[0], response[1], response[2].body";       
+                "return response[0], response[1], response[2].body, response[2].request.flash";       
         container.put("env", env);
         RubyArray responseArray = (RubyArray)container.runScriptlet(script);
         CrossingResponse response = new CrossingResponse();
@@ -194,6 +192,7 @@ public class CrossingHelpers {
         response.status = ((Long)responseArray.get(0)).intValue(); //status code; Fixnum
         response.responseHeader = (Map)responseArray.get(1); // response header; Hash
         response.body = (String)responseArray.get(2); // response body
+        response.flash = (Map) responseArray.get(3);
         return response;
     }
 }

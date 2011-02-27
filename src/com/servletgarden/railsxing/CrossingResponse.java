@@ -18,11 +18,16 @@ public class CrossingResponse {
     int status;
     Map<String, String> responseHeader;
     String body;
+    Map flash;
     
     CrossingResponse() {}
 
     public String getBody() {
         return addContextPath();
+    }
+    
+    public Map getFlash() {
+        return flash;
     }
 
     public Map<String, String> getResponseHeader() {

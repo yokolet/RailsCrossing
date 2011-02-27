@@ -81,6 +81,7 @@ public abstract class CrossingServlet extends HttpServlet {
             String value = crossingResponse.getResponseHeader().get(key);
             response.setHeader(key, value);
         }
+        request.getSession().setAttribute("action_dispatch.request.flash_hash", crossingResponse.getFlash());
         PrintWriter writer = response.getWriter();
         writer.write(crossingResponse.getBody());
     }
